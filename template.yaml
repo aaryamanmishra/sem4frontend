@@ -1,0 +1,175 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: BankUI Application - API Infrastructure
+
+Parameters:
+  Environment:
+    Type: String
+    Default: prod
+    AllowedValues: [dev, staging, prod]
+
+  DatabaseURL:
+    Type: String
+    NoEcho: true
+    Description: PostgreSQL connection string
+
+  SecretKey:
+    Type: String
+    NoEcho: true
+    Description: JWT secret key
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Environment:
+      Variables:
+        ENVIRONMENT: !Ref Environment
+        DATABASE_URL: !Ref DatabaseURL
+        SECRET_KEY: !Ref SecretKey
+        ALGORITHM: HS256
+        ACCESS_TOKEN_EXPIRE_MINUTES: 30
+
+Resources:
+  # Lambda Function
+  BankUIBackendFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'bankui-backend-${Environment}'
+      CodeUri: backend/
+      Handler: lambda_handler.handler
+      Description: BankUI Backend API
+      Tags:
+        Environment: !Ref Environment
+        Application: BankUI
+
+  # API Gateway
+  BankUIApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub 'bankui-api-${Environment}'
+      StageName: !Ref Environment
+      TracingEnabled: true
+      MethodSettings:
+        - ResourcePath: '/**'
+          HttpMethod: '*'
+          LoggingLevel: INFO
+          DataTraceEnabled: true
+          MetricsEnabled: true
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # Lambda Permission
+  BankUIApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref BankUIBackendFunction
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${BankUIApi}/*'
+
+  # CloudWatch Log Group
+  BankUILogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/bankui-backend-${Environment}'
+      RetentionInDays: 30
+
+  # S3 Bucket for Frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'bankui-frontend-${Environment}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        Environment: !Ref Environment
+        Application: BankUI
+
+  # S3 Bucket Policy
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyText:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${FrontendBucket.Arn}/*'
+
+  # CloudFront Distribution
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig: {}
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+        CacheBehaviors:
+          - PathPattern: /api/*
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD]
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: https-only
+            CachePolicyId: 4135ea3d-c35d-46eb-81d7-reputergc7
+        ErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+        HttpVersion: http2and3
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: BankUI
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${BankUIApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub 'BankUIApiEndpoint-${Environment}'
+
+  FrontendBucketName:
+    Description: S3 bucket for frontend
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub 'BankUIFrontendBucket-${Environment}'
+
+  CloudFrontDistribution:
+    Description: CloudFront distribution URL
+    Value: !GetAtt FrontendDistribution.DomainName
+    Export:
+      Name: !Sub 'BankUICloudFrontURL-${Environment}'
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt BankUIBackendFunction.Arn
+    Export:
+      Name: !Sub 'BankUILambdaArn-${Environment}'
