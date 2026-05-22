@@ -289,7 +289,7 @@ function App() {
           <div className="brand-lockup">
             <span className="brand-mark">K</span>
             <span>
-              <strong>Kodama Bank</strong>
+              <strong>Vishwakarma Bank</strong>
               <small>Personal banking</small>
             </span>
           </div>
@@ -432,7 +432,7 @@ function App() {
         <div className="brand-lockup">
           <span className="brand-mark">K</span>
           <span>
-            <strong>Kodama Bank</strong>
+            <strong>Vishwakarma Bank</strong>
             <small>Customer #{sessionUserId}</small>
           </span>
         </div>

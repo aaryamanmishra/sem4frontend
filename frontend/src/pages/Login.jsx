@@ -34,8 +34,8 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-secondary to-blue-700 flex items-center justify-center px-4">
       <div className="card w-full max-w-md">
         <div className="p-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">BankUI</h1>
-          <p className="text-gray-600 mb-8">Digital Banking Made Simple</p>
+          <h1 className="text-3xl font-bold text-primary mb-2">Vishwakarma Bank</h1>
+          <p className="text-gray-600 mb-8">Personal banking made simple</p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6 flex items-gap-2">

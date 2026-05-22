@@ -66,7 +66,7 @@ export default function Register() {
       <div className="card w-full max-w-md">
         <div className="p-8">
           <h1 className="text-3xl font-bold text-primary mb-2">Create Account</h1>
-          <p className="text-gray-600 mb-8">Join BankUI today</p>
+          <p className="text-gray-600 mb-8">Join Vishwakarma Bank today</p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6 flex items-gap-2">
